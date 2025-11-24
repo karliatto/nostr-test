@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nostr LUD16 Extractor (21 Addresses)</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 {
+        color: #333;
+      }
+      .found-address {
+        padding: 5px 0;
+        border-bottom: 1px solid #eee;
+      }
+      .found-address:last-child {
+        border-bottom: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Nostr LUD16</h1>
+    <div id="address-list"></div>
+    <script type="module">
+      import { SimplePool } from "https://cdn.jsdelivr.net/npm/nostr-tools@2.18.0/+esm";
+
+      const RELAYS = [
+        "wss://nos.lol",
+        "wss://nostr.bitcoiner.social",
+        "wss://relay.nostr.band",
+        "wss://relay.damus.io",
+        "wss://nostr.einundzwanzig.space",
+        "wss://relay.nostrplebs.com",
+      ];
+      const MAX_ADDRESSES = 21;
+
+      const foundAddresses = new Set();
+
+      const addressList = document.getElementById("address-list");
+
+      const pool = new SimplePool();
+
+      function startNostrListener() {
+        const filter = {
+          kinds: [0],
+          limit: 100,
+        };
+        const sub = pool.subscribe(RELAYS, filter, {
+          onevent(event) {
+            if (foundAddresses.size >= MAX_ADDRESSES) {
+              // Stop processing once the limit is reached.
+              return;
+            }
+
+            try {
+              const content = JSON.parse(event.content);
+              const lud16 = content.lud16;
+
+              // Some validation on the LUD16 address.
+              if (lud16 && typeof lud16 === "string" && lud16.includes("@")) {
+                const trimmedAddress = lud16.trim();
+
+                if (!foundAddresses.has(trimmedAddress)) {
+                  foundAddresses.add(trimmedAddress);
+
+                  // Display it!
+                  const p = document.createElement("div");
+                  p.className = "found-address";
+                  p.textContent = `Found(${foundAddresses.size}/${MAX_ADDRESSES}): ${trimmedAddress}`;
+                  addressList.appendChild(p);
+
+                  if (foundAddresses.size >= MAX_ADDRESSES) {
+                    // TODO: We should probably unsubscribe from all relays and close websocket connections.
+                  }
+                }
+              }
+            } catch (e) {
+              // Ignore events where content is not valid JSON
+              console.error("Error parsing event content:", e);
+            }
+          },
+        });
+      }
+
+      startNostrListener();
+    </script>
+  </body>
+</html>
